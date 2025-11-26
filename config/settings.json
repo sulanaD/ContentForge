@@ -1,0 +1,89 @@
+{
+  "system": {
+    "log_level": "INFO",
+    "log_file": "logs/orchestrator.log",
+    "max_concurrent_agents": 3,
+    "workflow_timeout": 300,
+    "cache_enabled": true,
+    "cache_ttl": 3600
+  },
+  "agents": {
+    "research": {
+      "enabled": true,
+      "timeout": 60,
+      "max_sources": 5,
+      "wikipedia_limit": 3,
+      "request_timeout": 10
+    },
+    "writer": {
+      "enabled": true,
+      "timeout": 120,
+      "default_word_count": 1000,
+      "min_quality_score": 0.7
+    },
+    "humanizer": {
+      "enabled": true,
+      "timeout": 60,
+      "min_improvement_threshold": 5.0,
+      "aggressive_humanization": false
+    },
+    "editor": {
+      "enabled": true,
+      "timeout": 90,
+      "grammar_check": true,
+      "style_check": true,
+      "plagiarism_check": false
+    },
+    "seo": {
+      "enabled": true,
+      "timeout": 60,
+      "target_keyword_density": 1.5,
+      "min_seo_score": 80
+    },
+    "publisher": {
+      "enabled": false,
+      "timeout": 120,
+      "auto_publish": false,
+      "supported_platforms": ["wordpress", "medium", "linkedin"]
+    }
+  },
+  "content_defaults": {
+    "content_type": "blog_post",
+    "target_audience": "general",
+    "tone": "informative_engaging",
+    "word_count_range": [800, 2500],
+    "include_images": false,
+    "include_citations": true
+  },
+  "quality_thresholds": {
+    "min_research_sources": 3,
+    "min_content_quality": 0.7,
+    "min_humanization_score": 60,
+    "min_readability_score": 60,
+    "min_seo_score": 75
+  },
+  "llm": {
+    "_comment": "Configure LLM providers. Set API keys here or as environment variables (OPENAI_API_KEY, ANTHROPIC_API_KEY)",
+    "provider": "auto",
+    "openai": {
+      "api_key": "",
+      "model": "gpt-3.5-turbo",
+      "max_tokens": 2000,
+      "temperature": 0.7
+    },
+    "anthropic": {
+      "api_key": "",
+      "model": "claude-3-sonnet-20240229",
+      "max_tokens": 2000
+    },
+    "ollama": {
+      "base_url": "http://localhost:11434",
+      "model": "llama2"
+    }
+  },
+  "qa_agent": {
+    "word_count_tolerance": 0.2,
+    "min_quality_score": 70,
+    "max_regeneration_attempts": 3
+  }
+}
