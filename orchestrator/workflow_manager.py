@@ -71,8 +71,9 @@ class WorkflowManager:
         self.config = Config(config or {})
         self.logger = get_logger("WorkflowManager")
         
-        # Initialize LLM Manager
-        self.llm_manager = get_llm_manager(config)
+        # Initialize LLM Manager with full config (including llm section from settings.json)
+        llm_config = self.config._config  # Pass the full config dict to LLMManager
+        self.llm_manager = get_llm_manager(llm_config)
         self.logger.info(f"LLM providers available: {self.llm_manager.get_available_providers()}")
         
         # Initialize agents

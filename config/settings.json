@@ -63,8 +63,14 @@
     "min_seo_score": 75
   },
   "llm": {
-    "_comment": "Configure LLM providers. Set API keys here or as environment variables (OPENAI_API_KEY, ANTHROPIC_API_KEY)",
+    "_comment": "Configure LLM providers. Set API keys here or as environment variables (GROQ_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY)",
     "provider": "auto",
+    "groq": {
+      "api_key": "",
+      "model": "llama-3.3-70b-versatile",
+      "max_tokens": 2000,
+      "temperature": 0.7
+    },
     "openai": {
       "api_key": "",
       "model": "gpt-3.5-turbo",
