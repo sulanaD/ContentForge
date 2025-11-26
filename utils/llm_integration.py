@@ -2,12 +2,12 @@
 LLM Integration Module for AI Workflow Orchestrator.
 
 Supports multiple LLM providers:
+- Groq (Llama, Mixtral - fast inference)
 - OpenAI (GPT-4, GPT-3.5)
 - Anthropic (Claude)
 - Ollama (Local models)
-- HuggingFace (Open source models)
 
-Set your API keys in environment variables or config/settings.json
+Set your API keys in environment variables (.env file) or config/settings.json
 """
 
 import os
@@ -15,6 +15,16 @@ import json
 import requests
 from typing import Dict, Any, Optional, List
 from abc import ABC, abstractmethod
+from pathlib import Path
+
+# Load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    env_path = Path(__file__).parent.parent / '.env'
+    load_dotenv(env_path)
+except ImportError:
+    pass  # python-dotenv not installed, rely on system env vars
+
 from utils.logger import get_logger
 
 logger = get_logger("LLMIntegration")
@@ -103,6 +113,43 @@ class AnthropicProvider(BaseLLMProvider):
         except Exception as e:
             logger.error(f"Anthropic API error: {str(e)}")
             raise
+
+class GroqProvider(BaseLLMProvider):
+    """Groq API provider (fast inference with Llama, Mixtral, etc.)."""
+    
+    def __init__(self, api_key: Optional[str] = None, model: str = "llama-3.3-70b-versatile"):
+        self.api_key = api_key or os.getenv("GROQ_API_KEY")
+        self.model = model
+        self.base_url = "https://api.groq.com/openai/v1/chat/completions"
+    
+    def is_available(self) -> bool:
+        return bool(self.api_key)
+    
+    def generate(self, prompt: str, max_tokens: int = 2000, temperature: float = 0.7, **kwargs) -> str:
+        if not self.is_available():
+            raise ValueError("Groq API key not configured")
+        
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        data = {
+            "model": self.model,
+            "messages": [{"role": "user", "content": prompt}],
+            "max_tokens": max_tokens,
+            "temperature": temperature
+        }
+        
+        try:
+            response = requests.post(self.base_url, headers=headers, json=data, timeout=120)
+            response.raise_for_status()
+            result = response.json()
+            return result["choices"][0]["message"]["content"]
+        except Exception as e:
+            logger.error(f"Groq API error: {str(e)}")
+            raise
+
 
 class OllamaProvider(BaseLLMProvider):
     """Ollama local LLM provider."""
@@ -408,22 +455,39 @@ class LLMManager:
     def _initialize_providers(self):
         """Initialize all available providers."""
         
+        # Get LLM section from config (from settings.json)
+        llm_config = self.config.get('llm', {})
+        
         # Try to initialize each provider
         try:
-            openai_key = self.config.get('openai_api_key') or os.getenv('OPENAI_API_KEY')
+            openai_config = llm_config.get('openai', {})
+            openai_key = openai_config.get('api_key') or self.config.get('openai_api_key') or os.getenv('OPENAI_API_KEY')
             if openai_key:
-                self.providers['openai'] = OpenAIProvider(api_key=openai_key)
-                self.logger.info("OpenAI provider initialized")
+                openai_model = openai_config.get('model', 'gpt-3.5-turbo')
+                self.providers['openai'] = OpenAIProvider(api_key=openai_key, model=openai_model)
+                self.logger.info(f"OpenAI provider initialized with model: {openai_model}")
         except Exception as e:
             self.logger.warning(f"Failed to initialize OpenAI: {e}")
         
         try:
-            anthropic_key = self.config.get('anthropic_api_key') or os.getenv('ANTHROPIC_API_KEY')
+            anthropic_config = llm_config.get('anthropic', {})
+            anthropic_key = anthropic_config.get('api_key') or self.config.get('anthropic_api_key') or os.getenv('ANTHROPIC_API_KEY')
             if anthropic_key:
-                self.providers['anthropic'] = AnthropicProvider(api_key=anthropic_key)
-                self.logger.info("Anthropic provider initialized")
+                anthropic_model = anthropic_config.get('model', 'claude-3-sonnet-20240229')
+                self.providers['anthropic'] = AnthropicProvider(api_key=anthropic_key, model=anthropic_model)
+                self.logger.info(f"Anthropic provider initialized with model: {anthropic_model}")
         except Exception as e:
             self.logger.warning(f"Failed to initialize Anthropic: {e}")
+        
+        try:
+            groq_config = llm_config.get('groq', {})
+            groq_key = groq_config.get('api_key') or self.config.get('groq_api_key') or os.getenv('GROQ_API_KEY')
+            if groq_key:
+                groq_model = groq_config.get('model', 'llama-3.3-70b-versatile')
+                self.providers['groq'] = GroqProvider(api_key=groq_key, model=groq_model)
+                self.logger.info(f"Groq provider initialized with model: {groq_model}")
+        except Exception as e:
+            self.logger.warning(f"Failed to initialize Groq: {e}")
         
         try:
             ollama = OllamaProvider()
@@ -443,7 +507,7 @@ class LLMManager:
     
     def get_best_provider(self) -> BaseLLMProvider:
         """Get the best available provider."""
-        priority = ['openai', 'anthropic', 'ollama', 'template']
+        priority = ['groq', 'openai', 'anthropic', 'ollama', 'template']
         
         for provider_name in priority:
             if provider_name in self.providers and self.providers[provider_name].is_available():
